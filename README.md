@@ -1,2 +1,2 @@
-# continuous_rotation
-Continuous rotation for microscope
+# Continuous Rotation
+TALOS / CETA TEM control: continuous rotation of the goniometer
