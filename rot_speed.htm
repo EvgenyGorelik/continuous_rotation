@@ -1,0 +1,198 @@
+<html>
+
+<head>
+<title>Rotatation with Speed-Control</title>
+</head>
+
+<body onload="Connect()">
+
+<h2 align="center" style="text-align : center;">RoTATIon, speed-control
+<div align="center"><center>
+<table border="1" cellpadding="15" cellspacing="3"><form id="theForm">
+    <tr>
+        <td align="center" bgcolor="powderblue">
+            <table border="0" cellpadding="4" cellspacing="0">
+                <tr>
+                    <td align="center" width="200"><p
+                    align="center" style="text-align : right;">alpha-angle (deg.)</p>
+                    </td>
+                    <td align="center" width="5">&nbsp;</td>
+                    <td align="center" width="200"><input
+                    type="text" size="10" maxlength="10"
+                    name="end"> </td>
+                </tr>
+                <tr>
+                    <td align="center" width="200"><p
+                    align="center" style="text-align : right;">rotation speed (fac.)</p>
+                    </td>
+                    <td align="center" width="5">&nbsp;</td>
+                    <td align="center" width="200"><input
+                    type="text" size="10" maxlength="10"
+                    name="speed"> </td>
+                </tr>
+		<tr>
+                    <td align="center" width="200"><p>&nbsp;</p>
+                    <h3 id="Status" style="text-align : right;"> Not running</h3>
+                     <p>&nbsp;</p>
+                    </td>
+                    <td align="center" width="5">&nbsp;</td>
+                    <td align="center" width="200">
+                    <input type="button" name="StartButton" value="Start"
+                    onclick="OnStart()">
+                </tr>
+            </table>
+           <div align="center"><center><table border="0"
+            cellpadding="4" cellspacing="0" >
+                <tr>
+                    <td align="center"><p align="center"
+                    style="text-align : center;">Errors + Messages:
+                    </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td align="center"><textarea
+                    name="TextErrors" rows="5" cols="40"
+                    readonly></textarea> </td>
+                </tr>
+                <tr>
+                    <td align="center"><input type="button"
+                    name="ButtonClear" value="Clear"
+                    onclick="OnClear()"> </td>
+                </tr>
+            </table>
+            </center></div>
+            </form>
+        </td>
+    </tr>
+</table>
+<i style="font-size: 16px; margin: 21px 0;">Tatiana Gorelik, Evgeny Gorelik, Ulm University 2020</i>
+</center></div><script language="JavaScript"><!--
+
+//---------------------------------------------------
+//Definition of some objects that are used throughout
+//the script
+//---------------------------------------------------
+var m_TEMScripting;
+var Position;
+var Speed;
+var timerID;
+var Angle;
+var Actualtime;
+var Endtime;
+
+//---------------------------------------------------
+//Here comes the initialization code, called when 
+//the <body> is loaded
+//---------------------------------------------------
+
+function Connect() {
+  try{
+     //initial values
+     theForm.end.value = 5;
+     theForm.speed.value = 0.05;
+     Endtime = 0;
+
+     //create TEMScripting Scripting
+     m_TEMScripting = new ActiveXObject("TEMScripting.Instrument");
+
+     //create StagePosition object
+     Position = m_TEMScripting.Stage.Position;
+
+   with (theForm.TextErrors){
+	value = "Connected to Microscope\n";
+	}
+
+  }
+  catch (E) {
+     DisplayError(E);
+  }
+   
+}
+
+
+//---------------------------------------------------
+//Function that displays errors
+//---------------------------------------------------
+
+function DisplayError(Err){
+   with (theForm.TextErrors){
+      for (prop in Err)
+           if (prop == "number"){ 
+               //transform into hexadezimal
+               var n = new Number(Err[prop] + Math.pow (2,32));
+               value = value + "Error " + prop + ": " + n.toString(16) + "\n";
+           }
+           else{
+               value = value + prop + ": " + Err[prop] + "\n";
+           }
+   }
+}
+
+//---------------------------------------------------
+//Here come the form button event handlers
+//---------------------------------------------------
+function OnClear(){
+   //clears the error textbox
+   theForm.TextErrors.value = "";
+}
+
+function OnStart(){
+	if (Endtime == 0){
+	   //read text boxes
+           Angle       = theForm.end.value * 3.14159/180.0;
+	   Speed       = theForm.speed.value;
+
+           //disable text boxes
+           theForm.end.disabled = true;
+           theForm.speed.disabled = true;
+
+	   var today = new Date();
+           Actualtime  = today.getTime();
+           Endtime     = Actualtime + 3000;
+
+		var filename = "C:\\Temp\\" + today.getFullYear() + "-" + (today.getMonth()+1) + "-" + today.getDate() + "_" + today.getHours() + "-" + today.getMinutes() + "-" + (today.getSeconds()+3) +".txt";
+	        var fso = new ActiveXObject("Scripting.FileSystemObject");
+        	var s = fso.CreateTextFile(filename, true);
+		s.WriteLine("Rotation with Speed-Control Parameters:");
+		s.WriteLine("Starting Position: " + Position.A);
+		s.WriteLine("End Position: " + Angle);
+		s.WriteLine("Rotation Value: " + theForm.end.value);
+		s.WriteLine("Speed: " + theForm.speed.value);
+
+		with (theForm.TextErrors){
+			value = value + "Parameters written to " + filename + "\n";
+		}
+	   
+	}
+	if (Endtime <= Actualtime) {
+           try{
+        	Status.innerHTML = "Moving";
+		m_TEMScripting.Illumination.BeamBlanked = false;
+        	//move stage
+		Position.A = Angle;	
+		m_TEMScripting.Stage.GoToWithSpeed(Position, 8, Speed);
+		m_TEMScripting.Illumination.BeamBlanked = true;
+		Status.innerHTML = "Finished";
+           }
+           catch (E) {
+               DisplayError(E);
+           }
+           //enable text boxes
+           theForm.end.disabled = false;
+           theForm.speed.disabled = false;
+	   Endtime = 0;
+	} else {
+           Actualtime  = new Date().getTime();
+		
+           //display wait time
+           Status.innerHTML = "Starting in " + -Math.round((Actualtime-Endtime)/1000.) +" sec";
+
+	   //go again
+     	   timerID = window.setTimeout("OnStart()", 1000.);
+	}
+}
+
+  
+--></script>
+</body>
+</html>
